@@ -113,7 +113,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <body>
 <div class="sidebar">
   <div class="sidebar-header">
-    <h1>📁 Folder Structure Builder</h1>
+    <h1>📁 Folder Structure Builder <button id="helpBtn" onclick="toggleHelp(event)" style="background:#18181b;border:1px solid #27272a;border-radius:50%;width:22px;height:22px;font-size:11px;cursor:pointer;color:#52525b;font-weight:700;display:inline-flex;align-items:center;justify-content:center;transition:all 0.15s;padding:0;line-height:1" onmouseover="this.style.color='#a1a1aa';this.style.borderColor='#3f3f46'" onmouseout="this.style.color='#52525b';this.style.borderColor='#27272a'">?</button></h1>
+    <div id="helpPopup" style="display:none;position:fixed;top:50px;left:20px;z-index:9999;background:#18181b;border:1px solid #3f3f46;border-radius:10px;padding:14px 16px;font-size:11px;line-height:1.6;color:#a1a1aa;width:340px;max-height:400px;overflow-y:auto;box-shadow:0 12px 40px rgba(0,0,0,0.6)">
+      <div style="font-weight:700;color:#e4e4e7;margin-bottom:6px;font-size:12px">Quick Guide</div>
+      <div style="color:#71717a;margin-bottom:8px">Type folder names or paste a column from Excel / Google Sheets / CSV. Comma-separated entries work too.</div>
+      <div style="font-weight:600;color:#d4d4d8;margin-top:8px">Tiers</div>
+      <div style="color:#71717a">Click <span style="color:#a1a1aa">+ Add Tier</span> to nest folders inside parent folders. By default, items are <span style="color:#a1a1aa">Global</span> (replicated in every parent). Switch to <span style="color:#a1a1aa">Child of Parent</span> for unique subfolders per parent.</div>
+      <div style="font-weight:600;color:#d4d4d8;margin-top:8px">Reorder &amp; Edit</div>
+      <div style="color:#71717a">Use <span style="color:#a1a1aa">↑ ↓</span> arrows to reorder tiers. Double-click any tag to rename it inline. Press Enter to confirm, Escape to cancel.</div>
+      <div style="font-weight:600;color:#d4d4d8;margin-top:8px">Preview</div>
+      <div style="color:#71717a">Switch between <span style="color:#a1a1aa">Tree</span>, <span style="color:#a1a1aa">Columns</span>, and <span style="color:#a1a1aa">Flowchart</span> views. Click nodes to expand/collapse.</div>
+      <div style="font-weight:600;color:#d4d4d8;margin-top:8px">Export</div>
+      <div style="color:#71717a">Download as a <span style="color:#a1a1aa">.zip</span> containing the empty folder structure.</div>
+      <div style="height:1px;background:#27272a;margin:10px 0"></div>
+      <div style="color:#3f3f46;font-size:10px;font-style:italic">Refreshing the page resets everything. No save functionality yet.</div>
+    </div></h1>
     <p>Build your hierarchy, preview live, export as ZIP.</p>
   </div>
   <div class="sidebar-body" id="sidebarBody"></div>
@@ -160,6 +174,9 @@ let currentView="tree";
 let treeCollapsed={};
 let columnSelection=[];
 let justMovedTierId=null;
+
+function toggleHelp(e){e&&e.stopPropagation();const p=document.getElementById('helpPopup');p.style.display=p.style.display==='none'?'block':'none'}
+document.addEventListener('click',function(e){const p=document.getElementById('helpPopup');if(p&&p.style.display!=='none'&&!p.contains(e.target)&&e.target.id!=='helpBtn'){p.style.display='none'}});
 
 function san(n){return n.replace(/[<>:"/\\|?*]/g,"_").trim()}
 function pi(raw){return raw.split(/[\n\r\t,]+/).map(s=>s.trim()).filter(Boolean).map(san).filter(Boolean)}
