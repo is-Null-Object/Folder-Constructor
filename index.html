@@ -611,8 +611,9 @@ async function writeToDisk() {
 
 document.addEventListener('keydown',function(e){
   if((e.ctrlKey||e.metaKey)&&e.key==='z'&&!e.shiftKey){
-    const tag=document.activeElement&&document.activeElement.tagName;
-    if(tag==='INPUT'||tag==='TEXTAREA')return;
+    const el=document.activeElement;
+    // Only let the browser handle native undo inside the inline tag-rename input
+    if(el&&el.id==='edit-tag')return;
     e.preventDefault();
     undo();
   }
