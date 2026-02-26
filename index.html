@@ -7,7 +7,7 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0a0a;color:#e4e4e7;min-height:100vh;display:flex}
-.sidebar{width:420px;min-width:420px;border-right:1px solid #27272a;display:flex;flex-direction:column;height:100vh;overflow:hidden}
+.sidebar{width:420px;min-width:200px;display:flex;flex-direction:column;height:100vh;overflow:hidden}
 .main{flex:1;display:flex;flex-direction:column;height:100vh;overflow:hidden}
 .sidebar-header{padding:16px 20px;border-bottom:1px solid #27272a}
 .sidebar-header h1{font-size:17px;display:flex;align-items:center;gap:8px;margin-bottom:2px}
@@ -84,13 +84,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .tc{color:#3f3f46;width:18px;flex-shrink:0;text-align:center;font-size:11px}
 .fi{width:13px;height:13px;flex-shrink:0}
 .column-view{flex:1;display:flex;overflow-x:auto;overflow-y:hidden}
-.column{min-width:180px;max-width:220px;border-right:1px solid #27272a;display:flex;flex-direction:column;height:100%}
+.column{min-width:160px;width:220px;border-right:1px solid #27272a;display:flex;flex-direction:column;height:100%;position:relative;flex-shrink:0}
 .column-header{padding:8px 12px;border-bottom:1px solid #27272a;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;flex-shrink:0}
 .column-body{flex:1;overflow-y:auto;padding:4px 0}
 .column-item{padding:6px 12px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;transition:background 0.1s;border-radius:0}
 .column-item:hover{background:rgba(255,255,255,0.05)}
 .column-item.selected{background:rgba(255,255,255,0.08)}
 .column-item-arrow{margin-left:auto;color:#3f3f46;font-size:10px}
+.col-resize{position:absolute;right:-3px;top:0;bottom:0;width:6px;cursor:col-resize;z-index:10}
+.col-resize:hover,.col-resize.resizing{background:rgba(255,255,255,0.12)}
+.panel-resize{width:5px;background:#27272a;cursor:col-resize;flex-shrink:0;transition:background 0.1s}
+.panel-resize:hover,.panel-resize.resizing{background:rgba(255,255,255,0.15)}
 .sunburst-container{flex:1;overflow:auto;position:relative;padding:24px}
 .htree-wrap{display:inline-flex;min-width:max-content}
 .htree-node{display:inline-flex;align-items:center}
@@ -139,6 +143,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <button id="directWriteBtn" style="width:100%;padding:12px;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;background:#2563eb;color:white;display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;" onclick="writeToDisk()" disabled>📂 Download Folders</button>
   </div>
 </div>
+<div class="panel-resize" id="panelResize"></div>
 <div class="main">
   <div class="preview-header">
     <h2>Preview</h2>
@@ -177,6 +182,7 @@ let tierIdCounter=2;
 let currentView="tree";
 let treeCollapsed={};
 let columnSelection=[];
+let colWidths=[];
 let justMovedTierId=null;
 let draggedTierIdx = null;
 let undoStack=[];
@@ -498,14 +504,16 @@ function renderColumnView(){
   }
   columns.forEach((col,colIdx)=>{
     const tierCol=tierColor(col.tierIdx);
-    html+=`<div class="column"><div class="column-header" style="color:${tierCol.text}">${tiers[col.tierIdx]?tiers[col.tierIdx].label:"Tier "+(col.tierIdx+1)}</div><div class="column-body">`;
+    const w=colWidths[colIdx]||220;
+    html+=`<div class="column" style="width:${w}px"><div class="column-header" style="color:${tierCol.text}">${tiers[col.tierIdx]?tiers[col.tierIdx].label:"Tier "+(col.tierIdx+1)}</div><div class="column-body">`;
     natSort(col.items.map(c=>c.name)).forEach(name=>{
       const node=col.items.find(c=>c.name===name);
       html+=`<div class="column-item ${col.selectedName===name?"selected":""}" onclick="selectColumn(${colIdx},'${esc(name)}')" style="color:${tierCol.previewText}">${fSVG(tierCol.previewIcon)} ${name}${node&&node.children.length?`<span class="column-item-arrow">▶</span>`:""}</div>`;
     });
-    html+=`</div></div>`;
+    html+=`</div><div class="col-resize" data-col="${colIdx}"></div></div>`;
   });
   container.innerHTML=html;
+  container.querySelectorAll('.col-resize').forEach(h=>h.addEventListener('mousedown',startColResize));
 }
 
 function selectColumn(colIdx,name){columnSelection=columnSelection.slice(0,colIdx);columnSelection[colIdx]=name;renderPreview()}
@@ -617,6 +625,48 @@ document.addEventListener('keydown',function(e){
     e.preventDefault();
     undo();
   }
+});
+
+function startColResize(e){
+  e.preventDefault();
+  const handle=this;
+  const colIdx=+handle.dataset.col;
+  const col=handle.parentElement;
+  const startX=e.clientX;
+  const startW=col.offsetWidth;
+  handle.classList.add('resizing');
+  function onMove(e){
+    const newW=Math.max(160,startW+(e.clientX-startX));
+    col.style.width=newW+'px';
+    colWidths[colIdx]=newW;
+  }
+  function onUp(){
+    handle.classList.remove('resizing');
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onUp);
+  }
+  document.addEventListener('mousemove',onMove);
+  document.addEventListener('mouseup',onUp);
+}
+
+document.getElementById('panelResize').addEventListener('mousedown',function(e){
+  e.preventDefault();
+  const handle=this;
+  const sidebar=document.querySelector('.sidebar');
+  const startX=e.clientX;
+  const startW=sidebar.offsetWidth;
+  handle.classList.add('resizing');
+  function onMove(e){
+    const newW=Math.max(200,Math.min(700,startW+(e.clientX-startX)));
+    sidebar.style.width=newW+'px';
+  }
+  function onUp(){
+    handle.classList.remove('resizing');
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onUp);
+  }
+  document.addEventListener('mousemove',onMove);
+  document.addEventListener('mouseup',onUp);
 });
 
 renderAll();
