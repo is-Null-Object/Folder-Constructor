@@ -185,6 +185,34 @@ document.addEventListener('click',function(e){const p=document.getElementById('h
 
 function san(n){return n.replace(/[<>:"/\\|?*]/g,"_").trim()}
 function pi(raw){return raw.split(/[\n\r\t,]+/).map(s=>s.trim()).filter(Boolean).map(san).filter(Boolean)}
+function parseGrid(raw){
+  return raw.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n')
+    .filter(row=>row.trim())
+    .map(row=>row.split('\t').map(s=>san(s.trim())));
+}
+function handleMultiColumnPaste(grid,startTierIdx){
+  const numCols=grid.reduce((max,row)=>Math.max(max,row.length),0);
+  const colsToProcess=Math.min(numCols,MAX_TIERS-startTierIdx);
+  while(tiers.length<startTierIdx+colsToProcess){
+    if(tiers.length>=MAX_TIERS)break;
+    tiers.push({id:"tier"+tierIdCounter++,label:"Subfolders (Level "+(tiers.length+1)+")",items:[],mode:"global",perParent:{},open:true});
+  }
+  const tier0=tiers[startTierIdx];
+  grid.forEach(row=>{const v=row[0]||'';if(v&&!tier0.items.includes(v))tier0.items.push(v);});
+  for(let col=1;col<colsToProcess;col++){
+    const tierIdx=startTierIdx+col;
+    if(tierIdx>=tiers.length)break;
+    const t=tiers[tierIdx];
+    t.mode='per';
+    grid.forEach(row=>{
+      const parentVal=row[col-1]||'';
+      const childVal=row[col]||'';
+      if(!parentVal||!childVal)return;
+      if(!t.perParent[parentVal])t.perParent[parentVal]=[];
+      if(!t.perParent[parentVal].includes(childVal))t.perParent[parentVal].push(childVal);
+    });
+  }
+}
 
 document.addEventListener('paste', function(e) {
   const activeEl = document.activeElement;
@@ -193,15 +221,22 @@ document.addEventListener('paste', function(e) {
     const pastedText = clipboardData.getData('text');
     if (pastedText.includes('\n') || pastedText.includes('\r') || pastedText.includes('\t')) {
       e.preventDefault();
-      const items = pi(pastedText);
       const inputId = activeEl.id;
       if (inputId.startsWith('inp-')) {
         const tierIdx = tiers.findIndex(t => 'inp-' + t.id === inputId);
         if (tierIdx !== -1) {
-          items.forEach(v => { if (!tiers[tierIdx].items.includes(v)) tiers[tierIdx].items.push(v); });
+          const grid = parseGrid(pastedText);
+          const isMultiCol = grid.some(row => row.filter(c => c !== '').length > 1);
+          if (isMultiCol) {
+            handleMultiColumnPaste(grid, tierIdx);
+          } else {
+            const items = grid.map(row => row[0] || '').filter(Boolean);
+            items.forEach(v => { if (!tiers[tierIdx].items.includes(v)) tiers[tierIdx].items.push(v); });
+          }
           renderAll();
         }
       } else if (inputId.startsWith('pp-')) {
+        const items = pi(pastedText);
         for (let tierIdx = 0; tierIdx < tiers.length; tierIdx++) {
           const t = tiers[tierIdx];
           const prefix = 'pp-' + t.id + '-';
